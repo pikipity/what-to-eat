@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 import urllib2
 
 mainhost='http://takeaway.happymacao.com'
-FileName='data\\set.txt'
+DataFile='data\\data.txt'
+ConfigFile='data\\Config.txt'
 WrongMessage=u"网络数据抓取错误，使用上次保留数据"
 
 icon="icon\\eat.ico"
@@ -19,7 +20,8 @@ icon="icon\\eat.ico"
 StartSwitch=Queue.Queue()
 StartSwitch.put(0)
 
-def GetAndSave(Url):
+
+def GetAndSave_name(Url):
     req=urllib2.Request(Url)
     try:
         reqopen=urllib2.urlopen(req)
@@ -41,7 +43,7 @@ def GetAndSave(Url):
             else:
                 analysis=BeautifulSoup(Html)
                 ana1=analysis.findAll('div',attrs={'id':'name'})
-                content=open(FileName,'a')
+                content=open(DataFile,'a')
                 for ana2 in ana1:
                     name=ana2.find('a').string
                     content.write(name.encode('utf-8')+'\n')
@@ -50,11 +52,25 @@ def GetAndSave(Url):
 def randomstring():
     Beginning=StartSwitch.get()
     StartSwitch.put(Beginning)
-    Station.set(u"开始抓取网络数据")
-    testweb=mainhost+'/other/1'
-    GetAndSave(testweb)
-    Station.set(u"抓取结束")
-    fp=open(FileName,'r')
+    Config=open(ConfigFile,'r')
+    Configure=Config.readlines()
+    Config.close()
+    ConfigUpdata=Configure[0]
+    ConfigUpdataState=ConfigUpdata[ConfigUpdata.rfind(" ")+1:len(ConfigUpdata)]
+    if ConfigUpdataState=='ToUpdata':
+        try:
+            os.remove(DataFile)
+        except:
+            Station.set(u"没有这个文件，准备创建新Data.txt文件")
+        Station.set(u"开始抓取网络数据")
+        testweb=mainhost+'/other/1'
+        GetAndSave_name(testweb)
+        Station.set(u"抓取结束")
+        Configure[0]=ConfigUpdata[0:ConfigUpdata.rfind(" ")+1]+'Updata'
+        Config=open(ConfigFile,'w')
+        Config.writelines(Configure)
+        Config.close()
+    fp=open(DataFile,'r')
     lines=fp.readlines()
     fp.close()
     Station.set(u"点击停止随机抽取")
@@ -62,7 +78,7 @@ def randomstring():
         num=random.randrange(1,len(lines))
         Eating=lines[num]
         Eating=Eating[0:Eating.rfind("\n")]
-        Eating=u"今天晚上吃  %s？"%Eating.decode('utf-8')
+        Eating=u"今天晚上吃 %s？"%Eating.decode('utf-8')
         Thing.set(Eating)
         time.sleep(0.1)
         Beginning=StartSwitch.get()
@@ -93,7 +109,7 @@ def SetWindow():
     if(Beginning==1):
         tkMessageBox.showwarning(u'呵呵',u"先停下好吗？")
     else:
-        win32api.ShellExecute(0,'open','notepad.exe',FileName,'',1)
+        win32api.ShellExecute(0,'open','notepad.exe',DataFile,'',1)
 
 root=Tkinter.Tk()
 root.title(u"今天晚上吃神马?")
