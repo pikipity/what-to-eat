@@ -1,5 +1,6 @@
 # coding=utf-8
 import Tkinter
+import string
 import random
 import time
 import Queue
@@ -66,19 +67,19 @@ def randomstring():
         testweb=mainhost+'/other/1'
         GetAndSave_name(testweb)
         Station.set(u"抓取结束")
-        Configure[0]=ConfigUpdata[0:ConfigUpdata.rfind(" ")+1]+'Updata'
+        Configure[0]=string.replace(ConfigUpdata,'ToUpdata','Updata')
         Config=open(ConfigFile,'w')
         Config.writelines(Configure)
         Config.close()
     fp=open(DataFile,'r')
     lines=fp.readlines()
     fp.close()
-    Station.set(u"点击停止随机抽取")
+    Station.set(u'点击“停止”，结束随机抽取')
     while(Beginning==1):
         num=random.randrange(1,len(lines))
         Eating=lines[num]
         Eating=Eating[0:Eating.rfind("\n")]
-        Eating=u"今天晚上吃 %s？"%Eating.decode('utf-8')
+        Eating=u"今天晚上吃 “%s”？"%Eating.decode('utf-8')
         Thing.set(Eating)
         time.sleep(0.1)
         Beginning=StartSwitch.get()
@@ -134,7 +135,7 @@ SetButton.pack(side="left")
 Station=Tkinter.StringVar()
 StationBar=Tkinter.Label(root,textvariable=Station,font="Times,5,block")
 StationBar.pack()
-Station.set(u"我是状态条")
+Station.set(u'点击“开始”，开始随机抽取')
 
 
 root.mainloop()
