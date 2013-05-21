@@ -12,9 +12,12 @@ from bs4 import BeautifulSoup
 import urllib2
 import webbrowser
 
+############## software information ########################
 Version="1.0"
 SoftwareName=u'今天晚上吃神马？'
+############################################################
 
+############# 常量 ###########################################
 mainhost='http://takeaway.happymacao.com'
 DataFile='data\\data.txt'
 ConfigFile='data\\Config.txt'
@@ -22,11 +25,36 @@ WrongMessage=u"网络数据抓取错误，使用上次保留数据"
 
 icon="icon\\eat.ico"
 
+ThingDefault=u"今天晚上吃神马？"
+
+StartButtonString_start=u"开始"
+StartButtonString_stop=u"停止"
+
+SettingButtonString=u"设定"
+
+AboutButtonString=u"关于作者"
+
+StationDefault=u'点击“开始”或按“回车”，开始随机抽取'
+Station_After_Start=u'点击“停止”或按“回车”，结束随机抽取'
+Station_After_Stop=u'抽取结束，点击餐厅名可以打开外卖单欧（需联网）'
+
+Station_Setting_Before_Stop=u"先停下好吗？"
+
+EatingNameDefault=u'仅提供 Takeaway Macao 上的餐厅'
+EatingWebDefault=mainhost
+EatingTeleDefault=u'有任何意见或建议可以联系我 -- pikipity'
+EatingNoteDefault=u'我的联系方式：'
+EatingHourDefault=u'pikipity@gmail.com'
+EatingAddressDefault=u'pikipity.github.io'
+###############################################################
+
+########### 进程间传递参量 ######################################
 StartSwitch=Queue.Queue(maxsize=1)
 StartSwitch.put(0)
 
 EatingWebStore=Queue.Queue(maxsize=1)
 EatingWebStore.put(mainhost)
+###############################################################
 
 def GetAndSave_name(Url):
     req=urllib2.Request(Url)
@@ -49,54 +77,123 @@ def GetAndSave_name(Url):
                 Station.set(WrongMessage)
             else:
                 analysis=BeautifulSoup(Html)
-                ana1=analysis.findAll('div',attrs={'id':'name'})
+                ana1=analysis.findAll('li')
                 content=open(DataFile,'a')
                 for ana2 in ana1:
-                    name=ana2.find('a').string
-                    RetMenu=ana2.find('span',attrs={'id':'function'}).find('a')['href']
-                    content.write(name.encode('utf-8')+'@'+mainhost+RetMenu.encode('utf-8')+'\n')
+                    try:
+                        name=ana2.find('span',attrs={'id':'name'}).find('a')\
+                              .string
+                    except:
+                        pass
+                    else:
+                        RetMenu=ana2.find('span',attrs={'id':'function'})\
+                                 .find('a')['href']
+                        ResTele=ana2.find('p',attrs={'id':'tel'}).string
+                        try:
+                            ResNote=ana2.find('p',attrs={'id':'note'}).string.encode('utf-8')
+                        except:
+                            ResNote='         '
+                        try:
+                            ResHour=ana2.find('p',attrs={'id':'hours'}).string.encode('utf-8')
+                        except:
+                            ResHour='         '
+                        try:
+                            ResAddress=ana2.find('p',attrs={'id':'address'}).string.encode('utf-8')
+                        except:
+                            ResAddress=' '
+                        # 书写格式：名字@菜单网址#电话%附注&营业时间*地址
+                        content.write(name.encode('utf-8')\
+                                      +'@'+mainhost+RetMenu.encode('utf-8')\
+                                      +'#'+ResTele[0:ResTele.rfind(u'&npsb;')].encode('utf-8')\
+                                      +'%'+ResNote\
+                                      +'&'+ResHour\
+                                      +'*'+ResAddress\
+                                      +'\n')
                 content.close
+
+def GetResInfo():
+    while(1):
+        print "I am started"
+        try:
+            os.remove(DataFile)
+        except:
+            pass
+        StartWeb=mainhost+'/other/1'
+        GetAndSave_name(StartWeb)
+        time.sleep(30)
+
+def FirstReadDataFile():
+    DataFileOK=0
+    while(DataFileOK==0):
+        Thing.set(u"稍等，下载数据中...")
+        try:
+            fp=open(DataFile,'r')
+            lines=fp.readlines()
+            fp.close()
+        except:
+            DataFileOK=0
+        else:
+            if len(lines)>=3:
+                DataFileOK=1
+            else:
+                DataFileOK=0
+    return lines
+
+def ReadDataFile(Oddlines):
+    try:
+        fp=open(DataFile,'r')
+        lines=fp.readlines()
+        fp.close()
+    except:
+        lines=Oddlines
+    else:
+        if len(lines)>=3:
+            pass
+        else:
+            lines=Oddlines
+    return lines
 
 def randomstring():
     Beginning=StartSwitch.get()
     StartSwitch.put(Beginning)
-    Config=open(ConfigFile,'r')
-    Configure=Config.readlines()
-    Config.close()
-    ConfigUpdata=Configure[0]
-    ConfigUpdataState=ConfigUpdata[ConfigUpdata.rfind(" ")+1:len(ConfigUpdata)]
-    if ConfigUpdataState=='ToUpdata':
-        Station.set(u"开始抓取网络数据")
-        try:
-            os.remove(DataFile)
-        except:
-            Station.set(u"没有这个文件，准备创建新Data.txt文件")
-        testweb=mainhost+'/other/1'
-        GetAndSave_name(testweb)
-        Configure[0]=string.replace(ConfigUpdata,'ToUpdata','Updata')
-        Config=open(ConfigFile,'w')
-        Config.writelines(Configure)
-        Config.close()
-        Station.set(u"抓取结束")
-    fp=open(DataFile,'r')
-    lines=fp.readlines()
-    fp.close()
-    Station.set(u'点击“停止”，结束随机抽取')
+    lines=FirstReadDataFile()
+    Station.set(Station_After_Start)
     while(Beginning==1):
         num=random.randrange(1,len(lines))
         Eating=lines[num]
-        EatingName=Eating[0:Eating.rfind("@")]
-        EatingWeb=Eating[Eating.rfind("@")+1:Eating.rfind("/n")]
-        EatingString=u"今天晚上吃 “%s”？"%EatingName.decode('utf-8')
-        Thing.set(EatingString)
-        time.sleep(0.1)
+        if Eating.rfind("@")==-1:
+            pass
+        else:
+            EatingName=Eating[0:Eating.rfind("@")]
+            EatingWeb=Eating[Eating.rfind("@")+1:Eating.rfind("#")]
+            EatingTele=Eating[Eating.rfind("#")+1:Eating.rfind("%")]
+            if Eating.rfind("&")==-1:
+                EatingNext=lines[num+1]
+                EatingNote=Eating[Eating.rfind("%")+1:Eating.rfind("\n")]\
+                            +EatingNext[0:EatingNext.rfind("&")]
+                EatingHour=EatingNext[EatingNext.rfind("&")+1:EatingNext.rfind("*")]
+                EatingAddress=EatingNext[EatingNext.rfind("*")+1:EatingNext.rfind("\n")]
+            else:
+                EatingNote=Eating[Eating.rfind("%")+1:Eating.rfind("&")]
+                EatingHour=Eating[Eating.rfind("&")+1:Eating.rfind("*")]
+                EatingAddress=Eating[Eating.rfind("*")+1:Eating.rfind("\n")]
+            EatingString=ThingDefault[0:4]+u" “%s”？"%EatingName.decode('utf-8')
+            Thing.set(EatingString)
+            time.sleep(0.1)
+            lines=ReadDataFile(lines)
         Beginning=StartSwitch.get()
         StartSwitch.put(Beginning)
     NowEatingString=Thing.get()
     Thing.set(NowEatingString[0:len(NowEatingString)-1]+u"!")
+    EatingNameVS.set(u'餐厅名：'+EatingName.decode('utf-8'))
+    EatingWebVS.set(u'菜单：'+EatingWeb.decode('utf-8'))
     EatingWebStore.get()
     EatingWebStore.put(EatingWeb)
-    Station.set(u'抽取结束，点击餐厅名可以显示外卖单欧')
+    EatingTeleVS.set(u'电话：'+EatingTele.decode('utf-8'))
+    EatingNoteVS.set(u'注释：'+EatingNote.decode('utf-8'))
+    EatingHourVS.set(u'营业时间：'+EatingHour.decode('utf-8'))
+    EatingAddressVS.set(u'地址：'+EatingAddress.decode('utf-8'))
+    Station.set(Station_After_Stop)
 
 
 def OpenEatingWeb(event="None"):
@@ -105,26 +202,26 @@ def OpenEatingWeb(event="None"):
     webbrowser.open(EatingWeb)
     
 
-def Start():
+def Start(event="None"):
     global StartorStop
     StartorStop=StartSwitch.get()
     StartSwitch.put(StartorStop)
     if(StartorStop==0):
         StartSwitch.get()
         StartSwitch.put(1)
-        StartStop.set(u"停止")
+        StartStop.set(StartButtonString_stop)
         EatStart=threading.Thread(target=randomstring)
         EatStart.start()
     elif(StartorStop==1):
         StartSwitch.get()
         StartSwitch.put(0)
-        StartStop.set(u"开始")
+        StartStop.set(StartButtonString_start)
 
 def SetWindow():
     Beginning=StartSwitch.get()
     StartSwitch.put(Beginning)
     if(Beginning==1):
-        tkMessageBox.showwarning(u'呵呵',u"先停下好吗？")
+        tkMessageBox.showwarning(u'呵呵',Station_Setting_Before_Stop)
     else:
         win32api.ShellExecute(0,'open','notepad.exe',DataFile,'',1)
 
@@ -132,8 +229,8 @@ def SetWindow():
 def AboutFunction():
     AboutWin=Tkinter.Toplevel()
     AboutWin.iconbitmap(icon)
-    AboutWin.title(u'关于作者'+' -- '+SoftwareName)
-    TitleLabel=Tkinter.Label(AboutWin,text="Speaking",font="Times 30 bold",fg="#FF1493")
+    AboutWin.title(AboutButtonString+' -- '+SoftwareName)
+    TitleLabel=Tkinter.Label(AboutWin,text=SoftwareName,font="Times 30 bold",fg="#FF1493")
     TitleLabel.pack()
     VersionLabel=Tkinter.Label(AboutWin,text="Version "+Version,\
                                font="Times 15 bold")
@@ -152,34 +249,90 @@ def OpenBlog(event="None"):
     webbrowser.open("pikipity.github.io")
     
 
+GetResInfoThreading=threading.Thread(target=GetResInfo)
+GetResInfoThreading.start()
+
 root=Tkinter.Tk()
 root.title(SoftwareName)
 root.iconbitmap(icon)
+root.bind("<Return>",Start)
+
+MainFrame=Tkinter.Frame(root)
+MainFrame.pack()
+
+##########################################################################
+ControlFrame=Tkinter.Frame(MainFrame)
+ControlFrame.pack()
 
 Thing=Tkinter.StringVar()
-Thing.set(u"今天晚上吃神马？")
-EatThing=Tkinter.Label(root,textvariable=Thing,font="Times,30,block",width=60,cursor="hand2")
+Thing.set(ThingDefault)
+EatThing=Tkinter.Label(ControlFrame,textvariable=Thing,font="Times,30,block",\
+                       width=60,cursor="hand2")
 EatThing.bind("<Button-1>",OpenEatingWeb)
 EatThing.pack()
 
-ButtonFrame=Tkinter.Frame(root)
+ButtonFrame=Tkinter.Frame(ControlFrame)
 ButtonFrame.pack()
 
 StartStop=Tkinter.StringVar()
-StartStop.set(u"开始")
+StartStop.set(StartButtonString_start)
 StartButton=Tkinter.Button(ButtonFrame,command=Start,textvariable=StartStop,font="Times,15,block")
 StartButton.pack(side="left")
 
-SetButton=Tkinter.Button(ButtonFrame,text=u"设定",font="Times,15,block",command=SetWindow)
+SetButton=Tkinter.Button(ButtonFrame\
+                         ,text=SettingButtonString\
+                         ,font="Times,15,block"\
+                         ,command=SetWindow)
 SetButton.pack(side="left")
 
-AboutButton=Tkinter.Button(ButtonFrame,text=u'关于作者',font="Times,15,block",command=AboutFunction)
+AboutButton=Tkinter.Button(ButtonFrame\
+                           ,text=AboutButtonString\
+                           ,font="Times,15,block"\
+                           ,command=AboutFunction)
 AboutButton.pack(side="left")
+##########################################################################
+
+ContainFrame=Tkinter.Frame(MainFrame)
+ContainFrame.pack()
+
+EatingNameVS=Tkinter.StringVar()
+EatingNameLabel=Tkinter.Label(ContainFrame,textvariable=EatingNameVS\
+                              ,font="Times,10,block",cursor="hand2")
+EatingNameLabel.bind("<Button-1>",OpenEatingWeb)
+EatingNameLabel.pack()
+EatingNameVS.set(EatingNameDefault)
+
+EatingWebVS=Tkinter.StringVar()
+EatingWebLabel=Tkinter.Label(ContainFrame,textvariable=EatingWebVS\
+                             ,font="Times,10,block",cursor="hand2")
+EatingWebLabel.bind("<Button-1>",OpenEatingWeb)
+EatingWebLabel.pack()
+EatingWebVS.set(EatingWebDefault)
+
+EatingTeleVS=Tkinter.StringVar()
+EatingTeleLabel=Tkinter.Label(ContainFrame,textvariable=EatingTeleVS,font="Times,10,block")
+EatingTeleLabel.pack()
+EatingTeleVS.set(EatingTeleDefault)
+
+EatingNoteVS=Tkinter.StringVar()
+EatingNoteLabel=Tkinter.Label(ContainFrame,textvariable=EatingNoteVS,font="Times,10,block")
+EatingNoteLabel.pack()
+EatingNoteVS.set(EatingNoteDefault)
+
+EatingHourVS=Tkinter.StringVar()
+EatingHourLabel=Tkinter.Label(ContainFrame,textvariable=EatingHourVS,font="Times,10,block")
+EatingHourLabel.pack()
+EatingHourVS.set(EatingHourDefault)
+
+EatingAddressVS=Tkinter.StringVar()
+EatingAddressLabel=Tkinter.Label(ContainFrame,textvariable=EatingAddressVS,font="Times,10,block")
+EatingAddressLabel.pack()
+EatingAddressVS.set(EatingAddressDefault)
+##########################################################################
 
 Station=Tkinter.StringVar()
 StationBar=Tkinter.Label(root,textvariable=Station,font="Times,5,block")
 StationBar.pack()
-Station.set(u'点击“开始”，开始随机抽取')
-
+Station.set(StationDefault)
 
 root.mainloop()
