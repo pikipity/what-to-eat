@@ -1,0 +1,2 @@
+StartWeb: http://takeaway.happymacao.com/other/1
+Location: 氹仔

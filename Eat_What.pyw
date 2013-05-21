@@ -309,7 +309,7 @@ def SetWindow():
             Configuration=fp.readlines()
             Configuration[1]=Configuration[1].decode('utf-8')
             LocationBeforeChoosed=Configuration[1][Configuration[1].rfind(u': ')+2:\
-                                        len(Configuration[1])]
+                                        Configuration[1].rfind(u'\n')]
             fp.close()
         except:
             LocationBeforeChoosed=LocationDefault
@@ -430,8 +430,8 @@ def OpenBlog(event="None"):
     
 ###########################################################################
 
-GetResInfoThreading=threading.Thread(target=GetResInfo)
-GetResInfoThreading.start()
+#GetResInfoThreading=threading.Thread(target=GetResInfo)
+#GetResInfoThreading.start()
 
 root=Tkinter.Tk()
 root.title(SoftwareName)
